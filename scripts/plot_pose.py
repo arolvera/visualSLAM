@@ -6,8 +6,8 @@ def main():
     pose_predicted_y = []
     pose_gt_x = []
     pose_gt_y = []
-    f_predicted = open(os.getcwd() + "/build/pose_predicted_2.txt")
-    f_gt = open(os.getcwd() + "/KITTI_sequence_2/poses.txt")
+    f_predicted = open(os.getcwd() + "/scripts/pose_predicted_1.txt")
+    f_gt = open(os.getcwd() + "/KITTI_sequence_1/poses.txt")
     for line in f_gt:
         line = line.split(" ") 
         pose_gt_x.append(float(line[3]))
@@ -23,7 +23,7 @@ def main():
     plt.xlabel("X axis")
     plt.ylabel("Z axis")
     plt.title("VO Pose Ground Truth vs Predicted")
-    plt.savefig("pose2.png")
+    plt.savefig("pose1.png")
     plt.show()
     
     f_predicted.close()

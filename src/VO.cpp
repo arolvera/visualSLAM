@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <memory>
 
 VisualOdometry::VisualOdometry() {
@@ -89,10 +90,8 @@ std::pair<std::pair<std::vector<cv::Point2f>, std::vector<cv::Point2f>>, std::ve
 /// @brief Get the rotation and translation of the camera given a set of matching image keypoints
 cv::Mat VisualOdometry::getPose(const std::vector<cv::Point2f> q1, const std::vector<cv::Point2f> q2) {
     cv::Mat R1, R2, t, ret;
-
     // Find essential matrix
     const cv::Mat E = cv::findEssentialMat(q1, q2, this->kl_);
-    
     // Decompose essential matrix
     cv::decomposeEssentialMat(E, R1, R2, t);
 
@@ -119,7 +118,6 @@ cv::Mat VisualOdometry::getPose(const std::vector<cv::Point2f> q1, const std::ve
             cv::hconcat(R1, t, T);
         }
         cv::vconcat(T, padding_T, T);
-
         P = K * T;
         cv::Mat Q1;
         cv::Mat Q2;
@@ -149,6 +147,7 @@ cv::Mat VisualOdometry::getPose(const std::vector<cv::Point2f> q1, const std::ve
             optimal_idx = i;
         }
     }
+
     // Return coresponding rotation and translation
     switch (optimal_idx) {
         case 0: cv::hconcat(R1, t, ret);  break;
@@ -156,7 +155,6 @@ cv::Mat VisualOdometry::getPose(const std::vector<cv::Point2f> q1, const std::ve
         case 2: cv::hconcat(R1, -t, ret); break;
         case 3: cv::hconcat(R2, -t, ret); break;
     }
-
     cv::vconcat(ret, padding_T, ret);
     return ret;
 }
@@ -169,71 +167,80 @@ void VisualOdometry::unHomogenize(cv::Mat& mat) {
     mat = mat / temp;
 }
 
+std::vector<cv::Mat> loadData(std::ifstream& file) {
+    std::vector<cv::Mat> ret;
+    std::string line = "";
+    while(std::getline(file, line)) { 
+        std::istringstream data_str(line);
+        std::vector<double> data(std::istream_iterator<double>(data_str), {});
+        cv::Mat matrix = cv::Mat::ones(3, 4, CV_64FC1);
+        std::memcpy(matrix.data, data.data(), data.size()*sizeof(double));
+        ret.push_back(matrix);
+    }
+    return ret;
+}
+
+
 int main(int argc, char **argv) {
-    std::ifstream calibration_data("KITTI_sequence_2/calib.txt");
-    std::ofstream pose_predicted("pose_predicted_2.txt");
 
-    // const cv::Mat Pl = (cv::Mat_<double>(3, 4) << 7.070912000000e+02, 0.000000000000e+00, 6.018873000000e+02, 0.000000000000e+00, 
-    //                                      0.000000000000e+00, 7.070912000000e+02, 1.831104000000e+02, 0.000000000000e+00,
-    //                                      0.000000000000e+00, 0.000000000000e+00, 1.000000000000e+00, 0.000000000000e+00);
+    std::ifstream calibration_data("../KITTI_sequence_" + std::to_string(sequence_number) + "/calib.txt");
+    std::ifstream pose_ground_truth("../KITTI_sequence_" + std::to_string(sequence_number) + "/poses.txt");
+    std::ofstream pose_predicted("../scripts/pose_predicted_" + std::to_string(sequence_number) + ".txt");
 
-    const cv::Mat Pl = (cv::Mat_<double>(3, 4) << 7.188560000000e+02, 0.000000000000e+00, 6.071928000000e+02, 0.000000000000e+00,
-                                         0.000000000000e+00, 7.188560000000e+02, 1.852157000000e+02, 0.000000000000e+00,
-                                         0.000000000000e+00, 0.000000000000e+00, 1.000000000000e+00, 0.000000000000e+00);
+    const std::vector<cv::Mat> cal = loadData(calibration_data);
+    const std::vector<cv::Mat> pose_gt = loadData(pose_ground_truth);
 
-    const cv::Mat Pr = Pl;
-    
+    const cv::Mat Pl = cal[0];
+    const cv::Mat Pr = cal[1];
+   
     // Instantiate VO object
     std::unique_ptr<VisualOdometry> VO = std::make_unique<VisualOdometry>(Pl, Pr);
 
-    char *filepath_left_prev = new char[100];
-    char *filepath_left = new char[100];
-    char *filepath_right = new char[100];
+    cv::Mat current_pose = pose_gt[0]; // Pose starts at ground truth
+    const cv::Mat padding = (cv::Mat_<double>(1, 4, CV_64FC1) << 0.0, 0.0, 0.0, 1.0);
+    current_pose.push_back(padding);
 
-    cv::Mat current_pose = (cv::Mat_<double>(4, 4) << 1.000000e+00, 9.043683e-12, 2.326809e-11, 1.110223e-16, 
-                                                      9.043683e-12, 1.000000e+00, 2.392370e-10, 2.220446e-16 ,
-                                                      2.326810e-11, 2.392370e-10, 9.999999e-01, -2.220446e-16,
-                                                      0, 0, 0, 1);
+    std::filesystem::path path = std::filesystem::current_path().string() + 
+        "/../KITTI_sequence_" + std::to_string(sequence_number) + "/image_l/";
 
-    for(uint8_t i = 1; i <= num_images; ++i) {
+    std::vector<std::filesystem::path> files;
+    std::copy(std::filesystem::directory_iterator(path), std::filesystem::directory_iterator(), std::back_inserter(files));
+    std::sort(files.begin(), files.end());
 
-        sprintf(filepath_left_prev, "../KITTI_sequence_2/image_l/0000%02i.png", i-1);
-        sprintf(filepath_left, "../KITTI_sequence_2/image_l/0000%02i.png", i);
-        sprintf(filepath_right, "../KITTI_sequence_2/image_r/0000%02i.png", i);
+    for (auto file_it = files.begin(); file_it < files.end(); ++file_it) {
 
-        const cv::Mat left_image_prev = cv::imread(filepath_left_prev, cv::ImreadModes::IMREAD_GRAYSCALE);
-        const cv::Mat left_image = cv::imread(filepath_left, cv::ImreadModes::IMREAD_GRAYSCALE);
-        const cv::Mat right_image = cv::imread(filepath_right, cv::ImreadModes::IMREAD_GRAYSCALE);
+        if (file_it - files.begin() == 0) { continue; } // Skip first frame to collect image i-1
+
+        const cv::Mat image_prev = cv::imread(files[file_it - files.begin() - 1], cv::ImreadModes::IMREAD_GRAYSCALE);
+        const cv::Mat image = cv::imread(*file_it, cv::ImreadModes::IMREAD_GRAYSCALE);
 
         // Error Handling
-        if (left_image.empty() || right_image.empty()) {
+        if (image_prev.empty() || image.empty()) {
             std::cout << "Image File "
                       << "Not Found" << std::endl;
             std::cin.get();
             return -1;
         }
 
-        const std::vector<cv::KeyPoint> keypoints_left_prev = VO->detectKeypoints(left_image_prev);
-        const std::vector<cv::KeyPoint> keypoints_left = VO->detectKeypoints(left_image);
+        const std::vector<cv::KeyPoint> keypoints_prev = VO->detectKeypoints(image_prev);
+        const std::vector<cv::KeyPoint> keypoints = VO->detectKeypoints(image);
         const std::pair<std::pair<std::vector<cv::Point2f>, std::vector<cv::Point2f>>, std::vector<cv::DMatch>> 
-            q = VO->getMatches(left_image_prev, left_image);
+            q = VO->getMatches(image_prev, image);
+        
         const cv::Mat transformation = VO->getPose(q.first.first, q.first.second);
         current_pose = current_pose * transformation.inv();
-
-        std::cout<<"Current Pose: "<<current_pose << std::endl;
+        std::cout<<"Current pose: " << current_pose << std::endl;
     
         pose_predicted << current_pose.at<double>(0, 3) << " "
                        << current_pose.at<double>(1, 3) << " "
                        << current_pose.at<double>(2, 3) << "\n";
         
         cv::Mat matches;
-        cv::drawMatches(left_image_prev, keypoints_left_prev, left_image, keypoints_left, q.second, matches);
+        cv::drawMatches(image_prev, keypoints_prev, image, keypoints, q.second, matches);
         cv::imshow("matches", matches);
         cv::waitKey(0);
-        
     }
 
     pose_predicted.close();
     return 0;
 }
-    

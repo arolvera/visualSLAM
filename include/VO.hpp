@@ -1,7 +1,8 @@
 #include <opencv2/opencv.hpp>
+
 #include <vector>
 
-#define num_images 50
+#define sequence_number 1
 
 class VisualOdometry {
    public:
@@ -42,3 +43,5 @@ class VisualOdometry {
     cv::Ptr<cv::DescriptorExtractor> descriptor_;
     std::unique_ptr<cv::FlannBasedMatcher> matcher_;
 };
+
+std::vector<cv::Mat> loadData(std::ifstream& file);
