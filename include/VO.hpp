@@ -1,44 +1,44 @@
-#include <opencv2/opencv.hpp> 
-
+#include <opencv2/opencv.hpp>
 #include <vector>
 
 #define num_images 50
 
 class VisualOdometry {
- public:
-    
+   public:
     VisualOdometry();
+
     VisualOdometry(cv::Mat Pl, cv::Mat Pr);
-    cv::Mat getPl() const { return Pl; }
-    cv::Mat getPr() const { return Pr; }
-    cv::Mat getKl() const { return Kl; }
-    cv::Mat getKr() const { return Kr; }
 
-    std::vector<cv::KeyPoint> detectKeypoints(cv::Mat image);
-    cv::Mat computeDescriptors(cv::Mat image, std::vector<cv::KeyPoint> keypoints);
-    std::vector<cv::DMatch> matchDescriptors(cv::Mat descriptors_first, cv::Mat descriptors_second);
+    [[nodiscard]] inline const cv::Mat& getPl() const { return pl_; }
+    [[nodiscard]] inline const cv::Mat& getPr() const { return pr_; }
+    [[nodiscard]] inline const cv::Mat& getKl() const { return kl_; }
+    [[nodiscard]] inline const cv::Mat& getKr() const { return kr_; }
 
-    cv::Mat computeDisparity(cv::Mat image_first, cv::Mat image_second);
+    std::vector<cv::KeyPoint> detectKeypoints(const cv::Mat image);
 
-    std::pair<std::pair<std::vector<cv::Point2f>, std::vector<cv::Point2f>>, std::vector<cv::DMatch>> getMatches(cv::Mat image_first, cv::Mat image_second);
+    cv::Mat computeDescriptors(const cv::Mat image, std::vector<cv::KeyPoint> keypoints);
 
-    cv::Mat getPose(std::vector<cv::Point2f> q1, std::vector<cv::Point2f> q2);
+    std::vector<cv::DMatch> matchDescriptors(const cv::Mat descriptors_first, const cv::Mat descriptors_second);
 
-    cv::Mat unHomogenize(cv::Mat mat);
-    
- private:
-    
+    cv::Mat computeDisparity(const cv::Mat image_first, const cv::Mat image_second);
+
+    std::pair<std::pair<std::vector<cv::Point2f>, std::vector<cv::Point2f>>, std::vector<cv::DMatch>> getMatches(const cv::Mat image_first, const cv::Mat image_second);
+
+    cv::Mat getPose(const std::vector<cv::Point2f> q1, const std::vector<cv::Point2f> q2);
+
+    void unHomogenize(cv::Mat& mat);
+
+   private:
     // Camera matrix P
-    cv::Mat Pl;
-    cv::Mat Pr;
-    
-    // Intrinsic matrix K
-    cv::Mat Kl;
-    cv::Mat Kr;
-        
-    // Feature detector and matcher
-    cv::Ptr<cv::FeatureDetector> detector;
-    cv::Ptr<cv::DescriptorExtractor> descriptor;
-    std::unique_ptr<cv::FlannBasedMatcher> matcher;
+    cv::Mat pl_;
+    cv::Mat pr_;
 
+    // Intrinsic matrix K
+    cv::Mat kl_;
+    cv::Mat kr_;
+
+    // Feature detector and matcher
+    cv::Ptr<cv::FeatureDetector> detector_;
+    cv::Ptr<cv::DescriptorExtractor> descriptor_;
+    std::unique_ptr<cv::FlannBasedMatcher> matcher_;
 };

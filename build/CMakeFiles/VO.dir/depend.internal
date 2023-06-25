@@ -3,7 +3,7 @@
 
 CMakeFiles/VO.dir/src/VO.cpp.o
  ../include/VO.hpp
- /home/anthony/Project/visualOdometry/src/VO.cpp
+ /home/anthony/Project/visualSLAM/src/VO.cpp
  /usr/include/opencv4/opencv2/calib3d.hpp
  /usr/include/opencv4/opencv2/core.hpp
  /usr/include/opencv4/opencv2/core/affine.hpp

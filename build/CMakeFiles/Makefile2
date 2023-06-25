@@ -44,10 +44,10 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/anthony/Project/visualOdometry
+CMAKE_SOURCE_DIR = /home/anthony/Project/visualSLAM
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/anthony/Project/visualOdometry/build
+CMAKE_BINARY_DIR = /home/anthony/Project/visualSLAM/build
 
 #=============================================================================
 # Directory level rules for the build root directory
@@ -74,14 +74,14 @@ clean: CMakeFiles/VO.dir/clean
 CMakeFiles/VO.dir/all:
 	$(MAKE) -f CMakeFiles/VO.dir/build.make CMakeFiles/VO.dir/depend
 	$(MAKE) -f CMakeFiles/VO.dir/build.make CMakeFiles/VO.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/anthony/Project/visualOdometry/build/CMakeFiles --progress-num=1,2 "Built target VO"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/anthony/Project/visualSLAM/build/CMakeFiles --progress-num=1,2 "Built target VO"
 .PHONY : CMakeFiles/VO.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/VO.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/anthony/Project/visualOdometry/build/CMakeFiles 2
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/anthony/Project/visualSLAM/build/CMakeFiles 2
 	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/VO.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/anthony/Project/visualOdometry/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/anthony/Project/visualSLAM/build/CMakeFiles 0
 .PHONY : CMakeFiles/VO.dir/rule
 
 # Convenience name for target.

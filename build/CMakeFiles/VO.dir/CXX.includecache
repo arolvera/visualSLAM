@@ -12,9 +12,9 @@ opencv2/opencv.hpp
 vector
 -
 
-/home/anthony/Project/visualOdometry/src/VO.cpp
+/home/anthony/Project/visualSLAM/src/VO.cpp
 VO.hpp
-/home/anthony/Project/visualOdometry/src/VO.hpp
+/home/anthony/Project/visualSLAM/src/VO.hpp
 filesystem
 -
 fstream

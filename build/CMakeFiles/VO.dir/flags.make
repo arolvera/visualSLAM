@@ -6,5 +6,5 @@ CXX_FLAGS =   -std=gnu++17
 
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/home/anthony/Project/visualOdometry/include -isystem /usr/include/opencv4 
+CXX_INCLUDES = -I/home/anthony/Project/visualSLAM/include -isystem /usr/include/opencv4 
 

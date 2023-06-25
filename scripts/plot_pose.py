@@ -1,13 +1,12 @@
 import os
 import matplotlib.pyplot as plt
 
-
 def main():
     pose_predicted_x = []
     pose_predicted_y = []
     pose_gt_x = []
     pose_gt_y = []
-    f_predicted = open(os.getcwd() + "/build/pose_predicted.txt")
+    f_predicted = open(os.getcwd() + "/build/pose_predicted_2.txt")
     f_gt = open(os.getcwd() + "/KITTI_sequence_2/poses.txt")
     for line in f_gt:
         line = line.split(" ") 
@@ -24,7 +23,7 @@ def main():
     plt.xlabel("X axis")
     plt.ylabel("Z axis")
     plt.title("VO Pose Ground Truth vs Predicted")
-    plt.savefig("pose.png")
+    plt.savefig("pose2.png")
     plt.show()
     
     f_predicted.close()

@@ -4,7 +4,7 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/anthony/Project/visualOdometry/src/VO.cpp" "/home/anthony/Project/visualOdometry/build/CMakeFiles/VO.dir/src/VO.cpp.o"
+  "/home/anthony/Project/visualSLAM/src/VO.cpp" "/home/anthony/Project/visualSLAM/build/CMakeFiles/VO.dir/src/VO.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 
