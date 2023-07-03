@@ -12,16 +12,21 @@ VisualOdometry::VisualOdometry() {
     this->detector_ = cv::ORB::create();
     this->descriptor_ = cv::ORB::create();
     this->matcher_ = std::make_unique<cv::FlannBasedMatcher>();
+    this->disparity_generator_ = cv::StereoSGBM::create();
+    this->block_size_ = 11;
 }
 
-VisualOdometry::VisualOdometry(cv::Mat pl, cv::Mat pr) : pl_(pl),
-                                                         pr_(pr),
-                                                         kl_(pl_(cv::Range(0, 3), cv::Range(0, 3))),
-                                                         kr_(pr_(cv::Range(0, 3), cv::Range(0, 3))),
-                                                         detector_(cv::ORB::create(3000)),
-                                                         descriptor_(cv::ORB::create()),
-                                                         matcher_(std::make_unique<cv::FlannBasedMatcher>(new cv::flann::LshIndexParams(6,12,1), new cv::flann::SearchParams(50)))
-                                                         {}
+//TODO make parameters configurable
+//TODO remove use of new
+VisualOdometry::VisualOdometry(cv::Mat pl, cv::Mat pr) : 
+    pl_(pl), pr_(pr), 
+    kl_(pl_(cv::Range(0, 3), cv::Range(0, 3))), kr_(pr_(cv::Range(0, 3), cv::Range(0, 3))),
+    detector_(cv::ORB::create(3000)), descriptor_(cv::ORB::create()),
+    matcher_(std::make_unique<cv::FlannBasedMatcher>(
+        new cv::flann::LshIndexParams(6, 12, 1),
+        new cv::flann::SearchParams(50))),
+    block_size_(11),
+    disparity_generator_(cv::StereoSGBM::create(0, 32, this->block_size_, this->block_size_ * this->block_size_ * 8, this->block_size_ * this->block_size_ * 32)) {}
 
 /// @brief  Detect keypoints given input image
 std::vector<cv::KeyPoint> VisualOdometry::detectKeypoints(const cv::Mat image) {
@@ -58,7 +63,6 @@ std::vector<cv::DMatch> VisualOdometry::matchDescriptors(const cv::Mat image_fir
 /// @brief Detect matches between a pair of images and return filtered points
 std::pair<std::pair<std::vector<cv::Point2f>, std::vector<cv::Point2f>>, std::vector<cv::DMatch>> 
     VisualOdometry::getMatches(const cv::Mat image_first, const cv::Mat image_second) {  
-    
     std::vector<std::vector<cv::DMatch>> matches = {};
     std::vector<cv::KeyPoint> keypoints_first, keypoints_second = {};
     cv::Mat descriptors_first, descriptors_second;
@@ -66,13 +70,13 @@ std::pair<std::pair<std::vector<cv::Point2f>, std::vector<cv::Point2f>>, std::ve
     this->detector_->detectAndCompute(image_first, cv::noArray(), keypoints_first, descriptors_first);
 
     this->detector_->detectAndCompute(image_second, cv::noArray(), keypoints_second, descriptors_second);
-
+        
     this->matcher_->knnMatch(descriptors_first, descriptors_second, matches, 2);
 
     // Filter matches using the Lowe's ratio test
     const float ratio_thresh = 0.5f;
     std::vector<cv::DMatch> good_matches = {};
-    for (uint16_t i = 0; i < matches.size(); i++) {
+    for (size_t i = 0; i < matches.size(); i++) {
         if (matches[i][0].distance < ratio_thresh * matches[i][1].distance) {
             good_matches.push_back(matches[i][0]);
         }
@@ -108,7 +112,7 @@ cv::Mat VisualOdometry::getPose(const std::vector<cv::Point2f> q1, const std::ve
     int8_t optimal_idx = -1;
     uint16_t max_positive = 0;
 
-    for (uint8_t i = 0; i < 4; ++i) {
+    for (size_t i = 0; i < 4; ++i) {
         cv::Mat T;
         cv::Mat P;
         if (i % 2) {
@@ -134,7 +138,7 @@ cv::Mat VisualOdometry::getPose(const std::vector<cv::Point2f> q1, const std::ve
 
         // Detect solution where all points are in front of camera eg possitive z values
         uint16_t sum = 0;
-        for (uint16_t j = 0; j < Q1.cols; ++j) {
+        for (size_t j = 0; j < Q1.cols; ++j) {
             if (Q1.row(Q1.rows - 1).at<double>(j) > 0) {
                 sum++;
             }
@@ -170,18 +174,17 @@ void VisualOdometry::unHomogenize(cv::Mat& mat) {
 std::vector<cv::Mat> loadData(std::ifstream& file) {
     std::vector<cv::Mat> ret;
     std::string line = "";
-    while(std::getline(file, line)) { 
+    while (std::getline(file, line)) { 
         std::istringstream data_str(line);
         std::vector<double> data(std::istream_iterator<double>(data_str), {});
         cv::Mat matrix = cv::Mat::ones(3, 4, CV_64FC1);
-        std::memcpy(matrix.data, data.data(), data.size()*sizeof(double));
+        std::memcpy(matrix.data, data.data(), data.size() * sizeof(double));
         ret.push_back(matrix);
     }
     return ret;
 }
 
-
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
 
     std::ifstream calibration_data("../KITTI_sequence_" + std::to_string(sequence_number) + "/calib.txt");
     std::ifstream pose_ground_truth("../KITTI_sequence_" + std::to_string(sequence_number) + "/poses.txt");
@@ -192,51 +195,75 @@ int main(int argc, char **argv) {
 
     const cv::Mat Pl = cal[0];
     const cv::Mat Pr = cal[1];
-   
+
     // Instantiate VO object
     std::unique_ptr<VisualOdometry> VO = std::make_unique<VisualOdometry>(Pl, Pr);
 
-    cv::Mat current_pose = pose_gt[0]; // Pose starts at ground truth
+    cv::Mat current_pose = pose_gt[0];  // Pose starts at ground truth
     const cv::Mat padding = (cv::Mat_<double>(1, 4, CV_64FC1) << 0.0, 0.0, 0.0, 1.0);
     current_pose.push_back(padding);
 
-    std::filesystem::path path = std::filesystem::current_path().string() + 
-        "/../KITTI_sequence_" + std::to_string(sequence_number) + "/image_l/";
+    std::filesystem::path path_left = std::filesystem::current_path().string() + "/../KITTI_sequence_" 
+                                    + std::to_string(sequence_number) + "/image_l/";
 
-    std::vector<std::filesystem::path> files;
-    std::copy(std::filesystem::directory_iterator(path), std::filesystem::directory_iterator(), std::back_inserter(files));
-    std::sort(files.begin(), files.end());
+    std::filesystem::path path_right = std::filesystem::current_path().string() + "/../KITTI_sequence_" 
+                                     + std::to_string(sequence_number) + "/image_r/";
 
-    for (auto file_it = files.begin(); file_it < files.end(); ++file_it) {
+    std::vector<std::filesystem::path> files_left;
+    std::vector<std::filesystem::path> files_right;
 
-        if (file_it - files.begin() == 0) { continue; } // Skip first frame to collect image i-1
+    std::copy(std::filesystem::directory_iterator(path_left), 
+              std::filesystem::directory_iterator(), std::back_inserter(files_left));
+    std::copy(std::filesystem::directory_iterator(path_right), 
+              std::filesystem::directory_iterator(), std::back_inserter(files_right));
 
-        const cv::Mat image_prev = cv::imread(files[file_it - files.begin() - 1], cv::ImreadModes::IMREAD_GRAYSCALE);
-        const cv::Mat image = cv::imread(*file_it, cv::ImreadModes::IMREAD_GRAYSCALE);
+    std::sort(files_left.begin(), files_left.end());
+    std::sort(files_right.begin(), files_right.end());
+
+    std::vector<std::filesystem::path>::iterator file_it_left;
+    std::vector<std::filesystem::path>::iterator file_it_right;
+
+    for (file_it_left = files_left.begin(), file_it_right = files_right.begin();
+         file_it_left < files_left.end() && file_it_right < files_right.end();  
+         ++file_it_left, ++file_it_right) {
+
+        if (file_it_left - files_left.begin() == 0 || file_it_right - files_right.begin() == 0) { 
+            continue; // Skip first frame to collect image i-1 
+        }  
+
+        const cv::Mat image_left_prev = cv::imread(files_left[file_it_left - files_left.begin() - 1], 
+                                                   cv::ImreadModes::IMREAD_GRAYSCALE);
+        const cv::Mat image_right_prev = cv::imread(files_right[file_it_right - files_right.begin() - 1], 
+                                                    cv::ImreadModes::IMREAD_GRAYSCALE);
+
+        const cv::Mat image_left = cv::imread(*file_it_left, cv::ImreadModes::IMREAD_GRAYSCALE);
+        const cv::Mat image_right = cv::imread(*file_it_right, cv::ImreadModes::IMREAD_GRAYSCALE);
 
         // Error Handling
-        if (image_prev.empty() || image.empty()) {
+        if (image_left_prev.empty() || image_right_prev.empty() || image_left.empty() || image_right.empty()) {
             std::cout << "Image File "
                       << "Not Found" << std::endl;
             std::cin.get();
             return -1;
         }
 
-        const std::vector<cv::KeyPoint> keypoints_prev = VO->detectKeypoints(image_prev);
-        const std::vector<cv::KeyPoint> keypoints = VO->detectKeypoints(image);
-        const std::pair<std::pair<std::vector<cv::Point2f>, std::vector<cv::Point2f>>, std::vector<cv::DMatch>> 
-            q = VO->getMatches(image_prev, image);
-        
+        const std::vector<cv::KeyPoint> keypoints_left_prev = VO->detectKeypoints(image_left_prev);
+        const std::vector<cv::KeyPoint> keypoints_left = VO->detectKeypoints(image_left);
+
+        const std::pair<std::pair<std::vector<cv::Point2f>, std::vector<cv::Point2f>>, std::vector<cv::DMatch>>
+            q = VO->getMatches(image_left_prev, image_left);
+
         const cv::Mat transformation = VO->getPose(q.first.first, q.first.second);
+
         current_pose = current_pose * transformation.inv();
-        std::cout<<"Current pose: " << current_pose << std::endl;
-    
+        std::cout << "Current pose: " << current_pose << std::endl;
+
         pose_predicted << current_pose.at<double>(0, 3) << " "
                        << current_pose.at<double>(1, 3) << " "
                        << current_pose.at<double>(2, 3) << "\n";
-        
+
         cv::Mat matches;
-        cv::drawMatches(image_prev, keypoints_prev, image, keypoints, q.second, matches);
+        cv::drawMatches(image_left_prev, keypoints_left_prev, image_left, keypoints_left, q.second, matches);
         cv::imshow("matches", matches);
         cv::waitKey(0);
     }

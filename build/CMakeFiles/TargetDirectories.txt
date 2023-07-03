@@ -1,3 +1,0 @@
-/home/anthony/Project/visualSLAM/build/CMakeFiles/rebuild_cache.dir
-/home/anthony/Project/visualSLAM/build/CMakeFiles/edit_cache.dir
-/home/anthony/Project/visualSLAM/build/CMakeFiles/VO.dir

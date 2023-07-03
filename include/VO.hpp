@@ -42,6 +42,10 @@ class VisualOdometry {
     cv::Ptr<cv::FeatureDetector> detector_;
     cv::Ptr<cv::DescriptorExtractor> descriptor_;
     std::unique_ptr<cv::FlannBasedMatcher> matcher_;
+    cv::Ptr<cv::StereoSGBM> disparity_generator_;
+
+    // blocksize
+    uint8_t block_size_;
 };
 
 std::vector<cv::Mat> loadData(std::ifstream& file);
